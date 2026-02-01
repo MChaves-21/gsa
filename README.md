@@ -2,7 +2,7 @@
 O GSA Player é uma plataforma de streaming de música moderna e minimalista, desenvolvida com React e integrada à API do Deezer. O projeto foca em uma experiência de usuário (UX) fluida, com uma interface glassmorphic elegante, suporte total a playlists personalizadas e descoberta inteligente de músicas.
 
 📸 Screenshots
-<div align="center"> <img src="gsa1.jpg" width="45%" alt="Home GSA Player" /> <img src="gsa2.png" width="45%" alt="Playlists GSA Player" /> </div>
+<div align="center"> <img src="gsa1.png" width="45%" alt="Home GSA Player" /> <img src="gsa2.png" width="45%" alt="Playlists GSA Player" /> </div>
 
 ✨ Funcionalidades
 🏠 Home & Descoberta
