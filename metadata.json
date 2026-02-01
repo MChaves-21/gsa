@@ -1,0 +1,7 @@
+{
+  "name": "GSA Player",
+  "description": "A modern music streaming experience powered by Deezer API, featuring track discovery, custom playlists, and a sleek glassmorphic player interface.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
