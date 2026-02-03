@@ -1,22 +1,25 @@
-
 import { Track } from '../types';
 
-const PROXY_URL = 'https://corsproxy.io/?';
+// Usando AllOrigins: Mais estável para deploys externos (Vercel)
+const PROXY_URL = 'https://api.allorigins.win/get?url=';
 const BASE_URL = 'https://api.deezer.com';
 
 const fetchFromDeezer = async (path: string) => {
   const url = `${BASE_URL}${path}`;
   try {
+    // AllOrigins exige que a URL de destino seja encodada
     const response = await fetch(`${PROXY_URL}${encodeURIComponent(url)}`);
 
     if (!response.ok) {
-      throw new Error(`Proxy error: ${response.status} ${response.statusText}`);
+      throw new Error(`Proxy error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const wrapper = await response.json();
+    // O AllOrigins retorna os dados da Deezer dentro de 'contents' como uma STRING
+    const data = JSON.parse(wrapper.contents);
 
     if (data.error) {
-      throw new Error(`Deezer API error: ${data.error.message || 'Unknown error'}`);
+      throw new Error(`Deezer API error: ${data.error.message}`);
     }
 
     return data;
@@ -33,8 +36,6 @@ export const deezerService = {
   },
 
   getChartTracks: async (index: number = 0): Promise<Track[]> => {
-    // Nota: O endpoint de chart puro do Deezer é limitado, para scroll infinito 
-    // usamos uma busca de tendências se o index for > 0
     if (index === 0) {
       const data = await fetchFromDeezer('/chart/0/tracks');
       return data.data || [];

@@ -56,7 +56,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [volume]);
 
-  // Limpeza de memória ao desmontar ou trocar de música
   const revokeOldUrl = () => {
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
@@ -67,48 +66,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const playTrack = async (track: Track, fromQueue?: Track[]) => {
     if (!audioRef.current) return;
 
-    console.log("🎵 Método Blob para:", track.title);
-
     if (!track.preview) {
-      alert("Prévia não disponível para esta faixa.");
+      alert("Prévia não disponível.");
       return;
     }
 
     try {
       if (fromQueue && fromQueue.length > 0) setQueue(fromQueue);
 
-      // 1. Reset e Limpeza
       audioRef.current.pause();
       revokeOldUrl();
       setCurrentTrack(track);
-      setIsPlaying(false);
 
-      // 2. FETCH VIA PROXY (Enganando o CORS)
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(track.preview)}`;
+      // Usando AllOrigins que é mais estável para deploy em HTTPS
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(track.preview)}`;
 
       const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+      if (!response.ok) throw new Error("Erro no Proxy");
 
-      // 3. Transformando em URL Local
       const blob = await response.blob();
       const localUrl = URL.createObjectURL(blob);
       blobUrlRef.current = localUrl;
 
-      // 4. Carregando no Player
       audioRef.current.src = localUrl;
-      audioRef.current.load();
-
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        await playPromise;
-        setIsPlaying(true);
-        console.log("✅ Tocando com sucesso!");
-      }
-
+      await audioRef.current.play();
+      setIsPlaying(true);
     } catch (error) {
-      console.error("❌ Erro ao processar áudio:", error);
-
-      // Tentativa de Fallback Final (Direto)
+      console.warn("Falha no Proxy, tentando link direto...");
       try {
         if (audioRef.current) {
           audioRef.current.src = track.preview;
@@ -116,31 +100,21 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setIsPlaying(true);
         }
       } catch (e) {
-        console.error("❌ Todas as tentativas falharam.");
+        console.error("Falha total no playback");
       }
     }
   };
 
   const togglePlay = () => {
     if (!currentTrack || !audioRef.current) return;
-
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch(e => console.error("Erro ao retomar:", e));
-    }
+    isPlaying ? audioRef.current.pause() : audioRef.current.play();
+    setIsPlaying(!isPlaying);
   };
 
   const nextTrack = () => {
     if (queue.length === 0 || !currentTrack) return;
     const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
-    let nextIndex = isShuffle
-      ? Math.floor(Math.random() * queue.length)
-      : (currentIndex + 1) % queue.length;
-
+    const nextIndex = isShuffle ? Math.floor(Math.random() * queue.length) : (currentIndex + 1) % queue.length;
     playTrack(queue[nextIndex]);
   };
 
@@ -152,34 +126,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const closePlayer = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-    }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
     revokeOldUrl();
     setCurrentTrack(null);
     setIsPlaying(false);
   };
 
-  const seek = (time: number) => {
-    if (audioRef.current) audioRef.current.currentTime = time;
-  };
-
+  const seek = (time: number) => { if (audioRef.current) audioRef.current.currentTime = time; };
   const toggleShuffle = () => setIsShuffle(!isShuffle);
   const toggleRepeat = () => setIsRepeat(!isRepeat);
 
   const addToPlaylist = (track: Track, playlistId: string) => {
-    setPlaylists(prev => prev.map(p =>
-      p.id === playlistId
-        ? { ...p, tracks: p.tracks.some(t => t.id === track.id) ? p.tracks : [...p.tracks, track] }
-        : p
-    ));
+    setPlaylists(prev => prev.map(p => p.id === playlistId ? { ...p, tracks: p.tracks.some(t => t.id === track.id) ? p.tracks : [...p.tracks, track] } : p));
   };
 
   const removeFromPlaylist = (trackId: number, playlistId: string) => {
-    setPlaylists(prev => prev.map(p =>
-      p.id === playlistId ? { ...p, tracks: p.tracks.filter(t => t.id !== trackId) } : p
-    ));
+    setPlaylists(prev => prev.map(p => p.id === playlistId ? { ...p, tracks: p.tracks.filter(t => t.id !== trackId) } : p));
   };
 
   const createPlaylist = (name: string) => {
@@ -188,9 +150,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return id;
   };
 
-  const deletePlaylist = (id: string) => {
-    if (id !== 'default') setPlaylists(prev => prev.filter(p => p.id !== id));
-  };
+  const deletePlaylist = (id: string) => { if (id !== 'default') setPlaylists(prev => prev.filter(p => p.id !== id)); };
 
   return (
     <PlayerContext.Provider value={{
