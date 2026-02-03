@@ -33,7 +33,7 @@ const TrackCard: React.FC<TrackCardProps> = ({ track, contextTracks = [] }) => {
   const handleToggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     setHeartAnimate(true);
     setTimeout(() => setHeartAnimate(false), 400);
 
@@ -63,16 +63,16 @@ const TrackCard: React.FC<TrackCardProps> = ({ track, contextTracks = [] }) => {
     <div className="group bg-slate-900/40 p-3 rounded-xl hover:bg-slate-800/60 transition-all duration-300 border border-slate-800/50 relative">
       {/* Imagem do Álbum - Limpa */}
       <div className="relative aspect-square mb-3 rounded-lg overflow-hidden shadow-lg bg-slate-800">
-        <img 
-          src={track.album.cover_medium} 
+        <img
+          src={track.album.cover_medium}
           alt={track.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
-        
+
         {/* Overlay de Play */}
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <button 
+          <button
             onClick={() => playTrack(track, contextTracks)}
             className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-slate-950 shadow-xl hover:scale-110 transition-transform"
           >
@@ -80,7 +80,7 @@ const TrackCard: React.FC<TrackCardProps> = ({ track, contextTracks = [] }) => {
           </button>
         </div>
       </div>
-      
+
       {/* Informações e Ações */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -91,26 +91,24 @@ const TrackCard: React.FC<TrackCardProps> = ({ track, contextTracks = [] }) => {
         </div>
 
         <div className="flex items-center gap-1" ref={menuRef}>
-          <button 
+          <button
             onClick={handleToggleFavorite}
-            className={`p-1.5 rounded-full transition-all flex items-center justify-center cursor-pointer ${
-              isFavorite 
-                ? 'text-red-500' 
-                : 'text-slate-500 hover:text-white opacity-0 group-hover:opacity-100'
-            } ${heartAnimate ? 'animate-heart-pop' : ''}`}
+            className={`p-1.5 rounded-full transition-all flex items-center justify-center cursor-pointer ${isFavorite
+              ? 'text-red-500'
+              : 'text-slate-500 hover:text-white opacity-0 group-hover:opacity-100'
+              } ${heartAnimate ? 'animate-heart-pop' : ''}`}
             title={isFavorite ? "Remover dos Favoritos" : "Adicionar aos Favoritos"}
           >
             <Heart size={16} fill={isFavorite ? "currentColor" : "none"} strokeWidth={isFavorite ? 0 : 2} />
           </button>
-          
+
           <div className="relative">
-            <button 
+            <button
               onClick={handleMenuToggle}
-              className={`p-1.5 rounded-full transition-all flex items-center justify-center cursor-pointer ${
-                showMenu || addedStatus
-                  ? 'text-emerald-500' 
-                  : 'text-slate-500 hover:text-white opacity-0 group-hover:opacity-100'
-              }`}
+              className={`p-1.5 rounded-full transition-all flex items-center justify-center cursor-pointer ${showMenu || addedStatus
+                ? 'text-emerald-500'
+                : 'text-slate-500 hover:text-white opacity-0 group-hover:opacity-100'
+                }`}
               title="Adicionar à Playlist"
             >
               {addedStatus ? <Check size={16} strokeWidth={3} /> : <MoreVertical size={16} />}

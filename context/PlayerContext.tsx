@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { Track, Playlist } from '../types';
 
@@ -44,7 +45,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [duration, setDuration] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem('gsa_playlists', JSON.stringify(playlists));
@@ -56,65 +56,57 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [volume]);
 
-  const revokeOldUrl = () => {
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current);
-      blobUrlRef.current = null;
-    }
-  };
-
-  const playTrack = async (track: Track, fromQueue?: Track[]) => {
-    if (!audioRef.current) return;
-
-    if (!track.preview) {
-      alert("Prévia não disponível.");
-      return;
-    }
-
-    try {
-      if (fromQueue && fromQueue.length > 0) setQueue(fromQueue);
-
-      audioRef.current.pause();
-      revokeOldUrl();
-      setCurrentTrack(track);
-
-      // Usando AllOrigins que é mais estável para deploy em HTTPS
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(track.preview)}`;
-
-      const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error("Erro no Proxy");
-
-      const blob = await response.blob();
-      const localUrl = URL.createObjectURL(blob);
-      blobUrlRef.current = localUrl;
-
-      audioRef.current.src = localUrl;
-      await audioRef.current.play();
-      setIsPlaying(true);
-    } catch (error) {
-      console.warn("Falha no Proxy, tentando link direto...");
-      try {
-        if (audioRef.current) {
-          audioRef.current.src = track.preview;
-          await audioRef.current.play();
-          setIsPlaying(true);
-        }
-      } catch (e) {
-        console.error("Falha total no playback");
-      }
+  const playTrack = (track: Track, fromQueue?: Track[]) => {
+    if (fromQueue && fromQueue.length > 0) setQueue(fromQueue);
+    setCurrentTrack(track);
+    setIsPlaying(true);
+    if (audioRef.current) {
+      audioRef.current.src = track.preview;
+      audioRef.current.play().catch(e => console.error("Playback failed:", e));
     }
   };
 
   const togglePlay = () => {
-    if (!currentTrack || !audioRef.current) return;
-    isPlaying ? audioRef.current.pause() : audioRef.current.play();
+    if (!currentTrack) return;
+    if (isPlaying) {
+      audioRef.current?.pause();
+    } else {
+      audioRef.current?.play().catch(e => console.error("Playback failed:", e));
+    }
     setIsPlaying(!isPlaying);
   };
 
+  const closePlayer = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+    setCurrentTrack(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
+
+  const toggleShuffle = () => setIsShuffle(!isShuffle);
+  const toggleRepeat = () => setIsRepeat(!isRepeat);
+
   const nextTrack = () => {
     if (queue.length === 0 || !currentTrack) return;
+
+    if (isRepeat) {
+      seek(0);
+      audioRef.current?.play();
+      return;
+    }
+
+    let nextIndex;
     const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
-    const nextIndex = isShuffle ? Math.floor(Math.random() * queue.length) : (currentIndex + 1) % queue.length;
+
+    if (isShuffle) {
+      nextIndex = Math.floor(Math.random() * queue.length);
+    } else {
+      nextIndex = (currentIndex + 1) % queue.length;
+    }
+
     playTrack(queue[nextIndex]);
   };
 
@@ -125,32 +117,52 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     playTrack(queue[prevIndex]);
   };
 
-  const closePlayer = () => {
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
-    revokeOldUrl();
-    setCurrentTrack(null);
-    setIsPlaying(false);
+  const seek = (time: number) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
   };
 
-  const seek = (time: number) => { if (audioRef.current) audioRef.current.currentTime = time; };
-  const toggleShuffle = () => setIsShuffle(!isShuffle);
-  const toggleRepeat = () => setIsRepeat(!isRepeat);
-
   const addToPlaylist = (track: Track, playlistId: string) => {
-    setPlaylists(prev => prev.map(p => p.id === playlistId ? { ...p, tracks: p.tracks.some(t => t.id === track.id) ? p.tracks : [...p.tracks, track] } : p));
+    setPlaylists(prev => {
+      const updated = prev.map(p => {
+        if (p.id === playlistId) {
+          const exists = p.tracks.some(t => t.id === track.id);
+          return { ...p, tracks: exists ? p.tracks : [...p.tracks, track] };
+        }
+        return p;
+      });
+      return updated;
+    });
   };
 
   const removeFromPlaylist = (trackId: number, playlistId: string) => {
-    setPlaylists(prev => prev.map(p => p.id === playlistId ? { ...p, tracks: p.tracks.filter(t => t.id !== trackId) } : p));
+    setPlaylists(prev => {
+      const updated = prev.map(p => {
+        if (p.id === playlistId) {
+          return { ...p, tracks: p.tracks.filter(t => t.id !== trackId) };
+        }
+        return p;
+      });
+      return updated;
+    });
   };
 
-  const createPlaylist = (name: string) => {
+  const createPlaylist = (name: string): string => {
     const id = Date.now().toString();
-    setPlaylists(prev => [...prev, { id, name, tracks: [] }]);
+    const newPlaylist: Playlist = {
+      id,
+      name,
+      tracks: []
+    };
+    setPlaylists(prev => [...prev, newPlaylist]);
     return id;
   };
 
-  const deletePlaylist = (id: string) => { if (id !== 'default') setPlaylists(prev => prev.filter(p => p.id !== id)); };
+  const deletePlaylist = (id: string) => {
+    if (id === 'default') return;
+    setPlaylists(prev => prev.filter(p => p.id !== id));
+  };
 
   return (
     <PlayerContext.Provider value={{
@@ -164,7 +176,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ref={audioRef}
         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        onEnded={() => isRepeat ? (audioRef.current!.currentTime = 0, audioRef.current!.play()) : nextTrack()}
+        onEnded={nextTrack}
       />
     </PlayerContext.Provider>
   );
