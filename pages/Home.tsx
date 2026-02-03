@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { deezerService } from '../services/deezerService';
 import { Track, View } from '../types';
@@ -29,7 +28,6 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
       setLoading(true);
       setTrackIndex(0);
       setTracks([]);
-      // Scroll to top of the content area
       const scrollContainer = document.getElementById('main-content-area');
       if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
@@ -52,7 +50,6 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
           setArtists(artistsData);
           setCurrentQuery(null);
         } else {
-          // Para "Atualizar Tudo", alternamos entre charts e buscas de tendências aleatórias
           const shouldFetchCharts = Math.random() > 0.5;
           if (shouldFetchCharts) {
             newTracks = await deezerService.getChartTracks(0);
@@ -109,8 +106,21 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
     setFetchingArtist(artistId);
     try {
       const topTracks = await deezerService.getArtistTopTracks(artistId);
+
       if (topTracks && topTracks.length > 0) {
-        playTrack(topTracks[0], topTracks);
+        // Mapeamento completo para respeitar a interface Track do seu types.ts
+        const formattedTracks: Track[] = topTracks.map(t => ({
+          ...t,
+          id: t.id,
+          title: t.title,
+          title_short: t.title_short || t.title, // Resolve o erro TS2322
+          preview: t.preview,
+          duration: t.duration,
+          artist: t.artist,
+          album: t.album
+        }));
+
+        playTrack(formattedTracks[0], formattedTracks);
       }
     } catch (err) {
       console.error("Erro ao buscar músicas do artista:", err);
@@ -173,9 +183,7 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
       <section>
         <div className="flex items-center gap-3 mb-6 md:mb-8 px-2">
           <Radio className="text-emerald-400 w-6 h-6 md:w-8 md:h-8" />
-          <div>
-            <h2 className="text-xl md:text-4xl font-black text-slate-100 tracking-tighter">Artistas Populares</h2>
-          </div>
+          <h2 className="text-xl md:text-4xl font-black text-slate-100 tracking-tighter">Artistas Populares</h2>
         </div>
 
         <div className="flex gap-4 md:gap-8 overflow-x-auto pb-8 px-2 -mx-2 custom-scrollbar-x snap-x scroll-pl-2">
@@ -194,7 +202,11 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
                     className="w-full h-full rounded-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-[2px]">
-                    <Play size={32} className="text-emerald-500 drop-shadow-lg" fill="currentColor" />
+                    {fetchingArtist === artist.id ? (
+                      <Loader2 size={32} className="text-emerald-500 animate-spin" />
+                    ) : (
+                      <Play size={32} className="text-emerald-500 drop-shadow-lg" fill="currentColor" />
+                    )}
                   </div>
                 </div>
               </div>

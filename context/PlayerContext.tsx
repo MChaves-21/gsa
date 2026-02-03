@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { Track, Playlist } from '../types';
 
@@ -45,6 +44,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [duration, setDuration] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem('gsa_playlists', JSON.stringify(playlists));
@@ -56,57 +56,92 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [volume]);
 
-  const playTrack = (track: Track, fromQueue?: Track[]) => {
-    if (fromQueue && fromQueue.length > 0) setQueue(fromQueue);
-    setCurrentTrack(track);
-    setIsPlaying(true);
-    if (audioRef.current) {
-      audioRef.current.src = track.preview;
-      audioRef.current.play().catch(e => console.error("Playback failed:", e));
+  const revokeOldUrl = () => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+  };
+
+  const playTrack = async (track: Track, fromQueue?: Track[]) => {
+    const audio = audioRef.current;
+    if (!audio || !track.preview) return;
+
+    try {
+      // 1. Reset agressivo do estado anterior
+      setIsPlaying(false);
+      audio.pause();
+
+      // Limpa a fonte e força o navegador a esquecer o erro anterior
+      audio.removeAttribute('src');
+      audio.load();
+      revokeOldUrl();
+
+      // Atualiza referências
+      setCurrentTrack(track);
+      if (fromQueue) setQueue(fromQueue);
+
+      // Pequena pausa para o navegador processar a limpeza do elemento
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // TENTATIVA 1: Modo Híbrido (Proxy Direto via AllOrigins como fallback)
+      // O Chrome prefere receber o áudio como uma URL local (Blob) para ignorar bloqueios de segurança
+
+      console.log(`[Player] Tentando carregar: ${track.title}`);
+
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(track.preview)}`;
+
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error("Falha ao buscar áudio via proxy");
+
+      const buffer = await response.arrayBuffer();
+      const blob = new Blob([buffer], { type: 'audio/mpeg' });
+      const localUrl = URL.createObjectURL(blob);
+
+      blobUrlRef.current = localUrl;
+      audio.src = localUrl;
+
+      // Carrega e tenta dar play
+      audio.load();
+      await audio.play();
+      setIsPlaying(true);
+      console.log("✅ Tocando com sucesso no Chrome/Edge");
+
+    } catch (error) {
+      console.error("❌ Falha no carregamento do áudio:", error);
+
+      // FALLBACK FINAL: Tenta o link direto se o proxy falhar (Funciona no Edge)
+      try {
+        if (audio) {
+          audio.src = track.preview;
+          audio.crossOrigin = "anonymous";
+          await audio.play();
+          setIsPlaying(true);
+        }
+      } catch (fallbackError) {
+        console.error("❌ Link direto também bloqueado.");
+      }
     }
   };
 
   const togglePlay = () => {
-    if (!currentTrack) return;
+    if (!currentTrack || !audioRef.current) return;
     if (isPlaying) {
-      audioRef.current?.pause();
-    } else {
-      audioRef.current?.play().catch(e => console.error("Playback failed:", e));
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const closePlayer = () => {
-    if (audioRef.current) {
       audioRef.current.pause();
-      audioRef.current.src = "";
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => playTrack(currentTrack));
     }
-    setCurrentTrack(null);
-    setIsPlaying(false);
-    setCurrentTime(0);
   };
-
-  const toggleShuffle = () => setIsShuffle(!isShuffle);
-  const toggleRepeat = () => setIsRepeat(!isRepeat);
 
   const nextTrack = () => {
     if (queue.length === 0 || !currentTrack) return;
-
-    if (isRepeat) {
-      seek(0);
-      audioRef.current?.play();
-      return;
-    }
-
-    let nextIndex;
     const currentIndex = queue.findIndex(t => t.id === currentTrack.id);
-
-    if (isShuffle) {
-      nextIndex = Math.floor(Math.random() * queue.length);
-    } else {
-      nextIndex = (currentIndex + 1) % queue.length;
-    }
-
+    const nextIndex = isShuffle
+      ? Math.floor(Math.random() * queue.length)
+      : (currentIndex + 1) % queue.length;
     playTrack(queue[nextIndex]);
   };
 
@@ -117,51 +152,41 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     playTrack(queue[prevIndex]);
   };
 
-  const seek = (time: number) => {
+  const closePlayer = () => {
     if (audioRef.current) {
-      audioRef.current.currentTime = time;
+      audioRef.current.pause();
+      audioRef.current.src = "";
     }
+    revokeOldUrl();
+    setCurrentTrack(null);
+    setIsPlaying(false);
   };
 
+  const seek = (time: number) => {
+    if (audioRef.current) audioRef.current.currentTime = time;
+  };
+
+  const toggleShuffle = () => setIsShuffle(!isShuffle);
+  const toggleRepeat = () => setIsRepeat(!isRepeat);
+
   const addToPlaylist = (track: Track, playlistId: string) => {
-    setPlaylists(prev => {
-      const updated = prev.map(p => {
-        if (p.id === playlistId) {
-          const exists = p.tracks.some(t => t.id === track.id);
-          return { ...p, tracks: exists ? p.tracks : [...p.tracks, track] };
-        }
-        return p;
-      });
-      return updated;
-    });
+    setPlaylists(prev => prev.map(p =>
+      p.id === playlistId ? { ...p, tracks: p.tracks.some(t => t.id === track.id) ? p.tracks : [...p.tracks, track] } : p
+    ));
   };
 
   const removeFromPlaylist = (trackId: number, playlistId: string) => {
-    setPlaylists(prev => {
-      const updated = prev.map(p => {
-        if (p.id === playlistId) {
-          return { ...p, tracks: p.tracks.filter(t => t.id !== trackId) };
-        }
-        return p;
-      });
-      return updated;
-    });
+    setPlaylists(prev => prev.map(p => p.id === playlistId ? { ...p, tracks: p.tracks.filter(t => t.id !== trackId) } : p));
   };
 
-  const createPlaylist = (name: string): string => {
+  const createPlaylist = (name: string) => {
     const id = Date.now().toString();
-    const newPlaylist: Playlist = {
-      id,
-      name,
-      tracks: []
-    };
-    setPlaylists(prev => [...prev, newPlaylist]);
+    setPlaylists(prev => [...prev, { id, name, tracks: [] }]);
     return id;
   };
 
   const deletePlaylist = (id: string) => {
-    if (id === 'default') return;
-    setPlaylists(prev => prev.filter(p => p.id !== id));
+    if (id !== 'default') setPlaylists(prev => prev.filter(p => p.id !== id));
   };
 
   return (
@@ -176,7 +201,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         ref={audioRef}
         onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        onEnded={nextTrack}
+        onEnded={() => {
+          if (isRepeat && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play();
+          } else {
+            nextTrack();
+          }
+        }}
       />
     </PlayerContext.Provider>
   );
