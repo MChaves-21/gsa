@@ -5,8 +5,6 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
-    // Define caminhos relativos para evitar erros 404 em subpastas (como no GitHub Pages)
-    base: './',
     server: {
       port: 3000,
       host: '0.0.0.0',
