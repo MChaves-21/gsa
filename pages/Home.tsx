@@ -1,45 +1,40 @@
-
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { deezerService } from '../services/deezerService';
 import { Track, View } from '../types';
 import TrackCard from '../components/TrackCard';
-import { TrendingUp, Radio, RefreshCcw, Play, Loader2 } from 'lucide-react';
+import { TrendingUp, Radio, RefreshCcw, Loader2, Play } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 
 interface HomeProps {
   setView?: (view: View) => void;
 }
 
-const Home: React.FC<HomeProps> = ({ setView }) => {
+const Home: React.FC<HomeProps> = () => {
   const { playTrack } = usePlayer();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [artists, setArtists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [fetchingArtist, setFetchingArtist] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [trackIndex, setTrackIndex] = useState(0);
-  const [currentQuery, setCurrentQuery] = useState<string | null>(null);
+
+  // Usamos Refs para evitar que loadData seja recriado em cada renderização
+  const trackIndexRef = useRef(0);
+  const currentQueryRef = useRef<string | null>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
-  const keywords = ['hits 2025', 'top brasil', 'pop international', 'rock classics', 'dance hits', 'lofi hip hop', 'viral tracks', 'rnb party', 'reggae vibe', 'electronic 2024', 'jazz smooth', 'workout energy'];
+  const keywords = ['hits 2025', 'top brasil', 'pop international', 'rock classics', 'dance hits'];
 
   const loadData = useCallback(async (isRefresh = false, isInitial = false) => {
     if (isRefresh) {
       setLoading(true);
-      setTrackIndex(0);
-      setTracks([]);
-      // Scroll to top of the content area
-      const scrollContainer = document.getElementById('main-content-area');
-      if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      trackIndexRef.current = 0;
     } else {
       setLoadingMore(true);
     }
-    
+
     setError(null);
 
     try {
-      const currentIndex = isRefresh ? 0 : trackIndex;
       let newTracks: Track[] = [];
 
       if (isRefresh) {
@@ -50,41 +45,39 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
           ]);
           newTracks = chartTracks;
           setArtists(artistsData);
-          setCurrentQuery(null);
+          currentQueryRef.current = null;
         } else {
-          // Para "Atualizar Tudo", alternamos entre charts e buscas de tendências aleatórias
           const shouldFetchCharts = Math.random() > 0.5;
           if (shouldFetchCharts) {
             newTracks = await deezerService.getChartTracks(0);
-            setCurrentQuery(null);
+            currentQueryRef.current = null;
           } else {
             const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
             newTracks = await deezerService.searchTracks(randomKeyword, 0);
-            setCurrentQuery(randomKeyword);
+            currentQueryRef.current = randomKeyword;
           }
         }
       } else {
-        if (currentQuery) {
-          newTracks = await deezerService.searchTracks(currentQuery, currentIndex);
+        if (currentQueryRef.current) {
+          newTracks = await deezerService.searchTracks(currentQueryRef.current, trackIndexRef.current);
         } else {
-          newTracks = await deezerService.getChartTracks(currentIndex);
+          newTracks = await deezerService.getChartTracks(trackIndexRef.current);
         }
       }
-      
+
       setTracks(prev => isRefresh ? newTracks : [...prev, ...newTracks]);
-      setTrackIndex(prev => isRefresh ? newTracks.length : prev + newTracks.length);
+      trackIndexRef.current += newTracks.length;
     } catch (err: any) {
-      console.error("Error loading music:", err);
-      setError(err.message || "Erro ao carregar as músicas.");
+      setError("Erro ao carregar músicas. Tente novamente.");
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [trackIndex, currentQuery]);
+  }, []); // Dependências limpas para evitar loops
 
   useEffect(() => {
     loadData(true, true);
-  }, []); 
+  }, [loadData]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -96,131 +89,51 @@ const Home: React.FC<HomeProps> = ({ setView }) => {
       { threshold: 0.1 }
     );
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
-    }
-
+    if (observerTarget.current) observer.observe(observerTarget.current);
     return () => observer.disconnect();
   }, [loading, loadingMore, tracks.length, loadData]);
 
-  const handleArtistClick = async (artistId: number) => {
-    if (fetchingArtist === artistId) return;
-    
-    setFetchingArtist(artistId);
-    try {
-      const topTracks = await deezerService.getArtistTopTracks(artistId);
-      if (topTracks && topTracks.length > 0) {
-        playTrack(topTracks[0], topTracks);
-      }
-    } catch (err) {
-      console.error("Erro ao buscar músicas do artista:", err);
-    } finally {
-      setFetchingArtist(null);
-    }
-  };
-
-  const handleListenNow = () => {
-    if (tracks.length > 0) {
-      playTrack(tracks[0], tracks);
-    }
-  };
-
-  if (loading && tracks.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Sintonizando GSA...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-4 md:p-8 space-y-8 md:space-y-12">
+    <div className="p-4 md:p-8 space-y-12">
       {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-2xl md:rounded-[2.5rem] bg-gradient-to-br from-emerald-600 to-emerald-950 p-6 md:p-10 shadow-2xl border border-white/10">
+      <section className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-emerald-600 to-emerald-950 p-10 border border-white/10">
         <div className="relative z-10 max-w-2xl">
-          <span className="inline-block px-3 py-1 bg-emerald-400/20 text-emerald-200 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-full mb-4 md:mb-6 border border-emerald-400/30">
-            Bombando Agora
-          </span>
-          <h1 className="text-3xl md:text-6xl font-black mb-4 md:mb-6 tracking-tighter leading-none">O som que move você</h1>
-          <p className="text-emerald-100 text-sm md:text-lg mb-6 md:mb-8 opacity-90 leading-relaxed font-medium">
-            Sua trilha sonora definitiva sem interrupções. Descubra os maiores sucessos mundiais em alta fidelidade.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button 
-              onClick={handleListenNow}
-              className="px-6 md:px-10 py-3 md:py-4 bg-white text-emerald-950 text-sm md:text-base font-black rounded-full hover:scale-105 transition-transform shadow-xl hover:bg-emerald-50"
-            >
-              Ouvir Agora
-            </button>
-            <button 
-              onClick={() => loadData(true)}
-              disabled={loading}
-              className="px-6 md:px-8 py-3 md:py-4 bg-emerald-800/40 text-white text-sm md:text-base font-black rounded-full hover:bg-emerald-700 transition-colors border border-emerald-400/30 flex items-center gap-2 backdrop-blur-sm group"
-            >
-              <RefreshCcw size={18} className={`${loading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"}`} />
-              <span className="hidden sm:inline">Atualizar Tudo</span>
-              <span className="sm:hidden">Atualizar</span>
-            </button>
-          </div>
+          <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tighter">O som que move você</h1>
+          <button onClick={() => loadData(true)} className="px-8 py-4 bg-white text-emerald-950 font-black rounded-full hover:scale-105 transition-transform">
+            Atualizar Tudo
+          </button>
         </div>
-        <div className="absolute -top-24 -right-24 w-64 h-64 md:w-96 md:h-96 bg-emerald-400/20 rounded-full blur-[100px] animate-pulse" />
       </section>
 
-      {/* Featured Artists */}
+      {/* Artistas */}
       <section>
-        <div className="flex items-center gap-3 mb-6 md:mb-8 px-2">
-          <Radio className="text-emerald-400 w-6 h-6 md:w-8 md:h-8" />
-          <div>
-            <h2 className="text-xl md:text-4xl font-black text-slate-100 tracking-tighter">Artistas Populares</h2>
-          </div>
+        <div className="flex items-center gap-3 mb-8">
+          <Radio className="text-emerald-400" />
+          <h2 className="text-3xl font-black text-slate-100">Artistas Populares</h2>
         </div>
-        
-        <div className="flex gap-4 md:gap-8 overflow-x-auto pb-8 px-2 -mx-2 custom-scrollbar-x snap-x scroll-pl-2">
-          {artists.map((artist) => (
-            <div 
-              key={artist.id} 
-              onClick={() => handleArtistClick(artist.id)}
-              className="flex-shrink-0 group cursor-pointer text-center w-32 md:w-52 p-3 md:p-5 rounded-3xl transition-all duration-500 hover:bg-slate-900/60 hover:-translate-y-2 relative snap-start"
-            >
-              <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/0 to-emerald-500/0 group-hover:from-emerald-500/5 group-hover:to-emerald-500/10 rounded-3xl transition-all duration-500" />
-              <div className="relative mb-3 md:mb-6 mx-auto">
-                <div className="relative w-24 h-24 md:w-40 md:h-40 mx-auto overflow-hidden rounded-full shadow-2xl ring-2 md:ring-4 ring-slate-950 group-hover:ring-emerald-500/50 transition-all duration-500">
-                  <img 
-                    src={artist.picture_medium} 
-                    alt={artist.name}
-                    className="w-full h-full rounded-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-[2px]">
-                    <Play size={32} className="text-emerald-500 drop-shadow-lg" fill="currentColor" />
-                  </div>
-                </div>
-              </div>
-              <p className="font-black text-slate-100 text-xs md:text-lg truncate group-hover:text-emerald-400 transition-colors">
-                {artist.name}
-              </p>
+        <div className="flex gap-8 overflow-x-auto pb-8 custom-scrollbar-x">
+          {artists.map(artist => (
+            <div key={artist.id} className="flex-shrink-0 text-center w-40">
+              <img src={artist.picture_medium} className="w-40 h-40 rounded-full mb-4 object-cover ring-4 ring-slate-900" alt={artist.name} />
+              <p className="font-bold text-slate-100">{artist.name}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Popular Tracks */}
+      {/* Tracks */}
       <section>
-        <div className="flex items-center gap-3 mb-6 px-2">
-          <TrendingUp className="text-emerald-400 w-6 h-6 md:w-8 md:h-8" />
-          <h2 className="text-xl md:text-4xl font-black text-slate-100 tracking-tighter">Descobertas</h2>
+        <div className="flex items-center gap-3 mb-6">
+          <TrendingUp className="text-emerald-400" />
+          <h2 className="text-3xl font-black text-slate-100">Descobertas</h2>
         </div>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8">
-          {tracks.map((track, index) => (
-            <TrackCard key={`${track.id}-${index}`} track={track} contextTracks={tracks} />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+          {tracks.map((track, i) => (
+            <TrackCard key={`${track.id}-${i}`} track={track} contextTracks={tracks} />
           ))}
         </div>
-
-        <div ref={observerTarget} className="w-full h-24 flex items-center justify-center mt-8">
-          {loadingMore && <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />}
+        <div ref={observerTarget} className="h-24 flex items-center justify-center">
+          {loadingMore && <Loader2 className="animate-spin text-emerald-500" />}
         </div>
       </section>
     </div>
