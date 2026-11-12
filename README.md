@@ -5,6 +5,8 @@
 ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
 
+**🔗 Demo:** https://gsa-player.vercel.app
+
 Player de música minimalista feito com **React** e a **API do Deezer**: busca em tempo real, playlists próprias e um player com visual glassmorphism que funciona bem no celular.
 
 <div align="center">
