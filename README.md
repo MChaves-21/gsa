@@ -1,74 +1,59 @@
-🎵 GSA Player
-O GSA Player é uma plataforma de streaming de música moderna e minimalista, desenvolvida com React e integrada à API do Deezer. O projeto foca em uma experiência de usuário (UX) fluida, com uma interface glassmorphic elegante, suporte total a playlists personalizadas e descoberta inteligente de músicas.
+# 🎵 GSA Player
 
-📸 Screenshots
-<div align="center"> <img src="gsa1.png" width="45%" alt="Home GSA Player" /> <img src="gsa2.png" width="45%" alt="Playlists GSA Player" /> </div>
+![React](https://img.shields.io/badge/React_19-20232A?logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)
 
-✨ Funcionalidades
-🏠 Home & Descoberta
-Infinite Scroll: Explore músicas sem fim com carregamento automático conforme você rola a página.
+Player de música minimalista feito com **React** e a **API do Deezer**: busca em tempo real, playlists próprias e um player com visual glassmorphism que funciona bem no celular.
 
-Refresh Inteligente: O botão "Atualizar Tudo" alterna dinamicamente entre os charts globais e palavras-chave de tendência para sempre trazer novidades.
+<div align="center">
+  <img src="gsa1.png" width="45%" alt="Tela inicial do GSA Player" />
+  <img src="gsa2.png" width="45%" alt="Playlists do GSA Player" />
+</div>
 
-Artistas Populares: Seção dedicada aos artistas que estão bombando no momento.
+## ✨ Funcionalidades
 
-🔍 Busca em Tempo Real
-Pesquise por faixas, álbuns ou artistas diretamente na barra de busca superior.
+**Descoberta**
+- Rolagem infinita: novas músicas carregam conforme você desce a página
+- Botão "Atualizar tudo" alterna entre os charts globais e palavras-chave em alta
+- Seção de artistas populares
 
-Resultados instantâneos alimentados pela base de dados do Deezer.
+**Busca**
+- Faixas, álbuns e artistas, com resultados enquanto você digita
 
-📂 Gestão de Playlists (CRUD Completo)
-Criação Dinâmica: Crie quantas playlists desejar.
+**Playlists (CRUD completo)**
+- Crie, edite e exclua playlists; adicione e remova faixas
+- Favoritos com um clique ("Curtir")
+- Tudo salvo no `localStorage`
 
-Favoritos: Sistema de "Curtir" que adiciona músicas automaticamente à sua biblioteca principal.
+**Player**
+- Play/pause, próxima/anterior, aleatório e repetir
+- Barra de progresso clicável e controle de volume
+- Navegação inferior estilo app no celular
 
-Edição Total: Adicione músicas através de cards, remova faixas individuais ou exclua playlists inteiras.
+## 🛠️ Tecnologias
 
-Persistência: Seus dados são salvos no localStorage.
+| Camada | Tecnologia |
+|---|---|
+| Interface | React 19 + TypeScript |
+| Build | Vite |
+| Estilo | Tailwind CSS |
+| Ícones | Lucide React |
+| Estado | Context API |
+| Dados | API do Deezer |
 
-🎧 Player Avançado
-Interface Glassmorphism: Player fixo com efeito de transparência e desfoque.
+## 🚀 Como rodar
 
-Controles Completos: Play/Pause, Próxima/Anterior, Shuffle e Repeat.
-
-Interatividade: Barra de progresso clicável e controle de volume fino.
-
-📱 Responsividade Mobile
-Mobile-First: Navegação inferior estilo app nativo.
-
-Player Adaptável: Controles redimensionados para telas pequenas.
-
-🛠️ Tecnologias Utilizadas
-Core: React 19
-
-Estilização: Tailwind CSS
-
-Ícones: Lucide React
-
-API de Dados: Deezer API
-
-Gerenciamento de Estado: React Context API
-
-Animações: Framer Motion / CSS Animations
-
-🚀 Como Executar o Projeto
-Clone o repositório:
-
-Bash
-git clone https://github.com/seu-usuario/gsa-player.git
-Instale as dependências:
-
-Bash
+```bash
+git clone https://github.com/MChaves-21/gsa.git
+cd gsa
 npm install
-Inicie o servidor de desenvolvimento:
+npm run dev
+```
 
-Bash
-npm start
-📝 Roadmap Futuro
-[ ] Implementar sistema de letras (Lyrics) em tempo real.
+## 📝 Próximos passos
 
-[ ] Adicionar modo offline (PWA).
-
-[ ] Login social para sincronização em nuvem.
-
-[ ] Equalizador de áudio visual com Canvas API.
+- [ ] Letras sincronizadas com a música
+- [ ] Modo offline (PWA)
+- [ ] Login para sincronizar playlists na nuvem
